@@ -135,3 +135,21 @@ pinecone.log
 
 # WhatsApp
 whatsapp.log
+
+# Environment variables
+.env
+
+# Local AWS configurations
+.aws/
+
+# Logs
+logs/
+*.log
+
+# Docker
+*.env
+*.local
+
+# IDE specific
+.vscode/
+.idea/

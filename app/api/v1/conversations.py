@@ -1,5 +1,6 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from datetime import datetime
 from app.api.deps import get_dynamodb, get_current_organization, get_llm_service
