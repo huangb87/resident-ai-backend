@@ -1,8 +1,8 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, JSONResponse
 from pydantic import BaseModel
 from datetime import datetime
-from app.api.deps import get_dynamodb, get_current_organization
+from app.api.deps import get_dynamodb, get_current_organization, get_llm_service
 from app.db.dynamodb.service import DynamoDBService
 from app.db.postgresql.models import Organization
 from app.core.logging import get_logger, log_api_call, log_error
@@ -204,3 +204,47 @@ async def get_conversation_messages(
     except Exception as e:
         log_error(logger, e, "get_conversation_messages")
         raise
+
+@router.post("/webhook")
+async def whatsapp_webhook(
+    request: Request,
+    dynamodb: DynamoDBService = Depends(get_dynamodb),
+    llm_service: LLMService = Depends(get_llm_service)
+):
+    """
+    Webhook endpoint to receive messages from WhatsApp and send responses back.
+    """
+    data = await request.json()
+    message = data.get("message", {})
+    sender = message.get("from")
+    content = message.get("text", {}).get("body", "")
+    
+    # Parse incoming message
+    if not sender or not content:
+        raise HTTPException(status_code=400, detail="Invalid message format.")
+    
+    # Retrieve conversation context from DynamoDB
+    conversation_id = f"{sender}_conversation"
+    conversation = await dynamodb.get_conversation(conversation_id)
+    context = conversation.get("messages", []) if conversation else []
+    
+    # Generate response using AI
+    response_text = await llm_service.handle_user_query(content, context)
+    
+    # Update conversation context
+    context.append({"role": "user", "content": content})
+    context.append({"role": "assistant", "content": response_text})
+    await dynamodb.update_conversation(conversation_id, {"messages": context})
+    
+    # Send response back to WhatsApp
+    response_data = {
+        "to": sender,
+        "text": {
+            "body": response_text
+        }
+    }
+    
+    # Placeholder for sending response back to WhatsApp API
+    # send_to_whatsapp_api(response_data)
+    
+    return JSONResponse(content={"status": "success", "response": response_data})
