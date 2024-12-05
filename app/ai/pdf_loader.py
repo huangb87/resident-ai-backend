@@ -49,10 +49,11 @@ class PDFProcessor:
                     all_chunks.extend(chunks)
                     
                     # Create metadata for each chunk
-                    for _ in chunks:
+                    for chunk in chunks:
                         metadata = {
                             "source": filename,
-                            "page": page.metadata.get("page", 0)
+                            "page": page.metadata.get("page", 0),
+                            "text": chunk
                         }
                         all_metadatas.append(metadata)
         
