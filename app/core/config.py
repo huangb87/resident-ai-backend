@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # WhatsApp
     WHATSAPP_API_TOKEN: str
     WHATSAPP_VERIFY_TOKEN: str
+    WHATSAPP_PHONE_ID: str
     
     # Security
     SECRET_KEY: str

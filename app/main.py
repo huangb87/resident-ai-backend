@@ -6,7 +6,8 @@ from app.api.v1 import (
     whatsapp_users,
     knowledge_bases,
     usage_metrics,
-    conversations
+    conversations,
+    whatsapp_webhook
 )
 from app.core.config import settings
 from app.db.dynamodb.init_tables import init_dynamodb
@@ -56,6 +57,12 @@ app.include_router(
     whatsapp_users.router,
     prefix=f"{settings.API_V1_STR}/whatsapp-users",
     tags=["whatsapp-users"]
+)
+
+app.include_router(
+    whatsapp_webhook.router,
+    prefix=f"{settings.API_V1_STR}/whatsapp",
+    tags=["whatsapp-webhook"]
 )
 
 app.include_router(
