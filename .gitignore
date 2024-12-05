@@ -153,3 +153,7 @@ logs/
 # IDE specific
 .vscode/
 .idea/
+
+# data
+data/
+guides/

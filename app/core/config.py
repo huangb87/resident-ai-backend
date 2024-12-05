@@ -19,10 +19,6 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str = "us-east-1"
     
-    # Redis
-    REDIS_HOST: str
-    REDIS_PORT: int = 6379
-    
     # OpenAI
     OPENAI_API_KEY: str
     

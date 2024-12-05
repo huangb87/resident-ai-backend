@@ -7,6 +7,7 @@ from app.api.deps import get_dynamodb, get_current_organization, get_llm_service
 from app.db.dynamodb.service import DynamoDBService
 from app.db.postgresql.models import Organization
 from app.core.logging import get_logger, log_api_call, log_error
+from app.ai.llm import LLMService
 
 router = APIRouter()
 logger = get_logger(__name__)

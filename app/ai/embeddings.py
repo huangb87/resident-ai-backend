@@ -1,102 +1,87 @@
 """
 Vector embeddings and Pinecone service for knowledge base management
 """
-from typing import List, Dict, Any
-import pinecone
+from typing import List, Dict, Any, Optional
+from pinecone.grpc import PineconeGRPC as Pinecone
 from langchain.embeddings.openai import OpenAIEmbeddings
 from app.core.config import settings
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class PineconeService:
-    def __init__(self):
-        # Initialize Pinecone
-        pinecone.init(
-            api_key=settings.PINECONE_API_KEY,
-            environment=settings.PINECONE_ENVIRONMENT
-        )
-        
-        # Initialize the index (create if doesn't exist)
+    def __init__(self, namespace: str = "default"):
         self.index_name = "whatsapp-ai-kb"
-        if self.index_name not in pinecone.list_indexes():
-            pinecone.create_index(
-                name=self.index_name,
-                dimension=1536,  # OpenAI embedding dimension
-                metric="cosine"
-            )
-            
-        self.index = pinecone.Index(self.index_name)
-        self.embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+        self.namespace = namespace
         
+        # Debug logging
+        logger.info(f"Using index name: {self.index_name}")
+        logger.info(f"Using namespace: {self.namespace}")
+        
+        # Initialize Pinecone with GRPC client
+        self.pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+        
+        # Connect to the index
+        self.index = self.pc.Index(self.index_name)
+        logger.info("Successfully connected to Pinecone index")
+        
+        self.embeddings = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
+    
     async def add_texts(
         self,
         texts: List[str],
-        metadata: List[Dict[str, Any]] = None
+        ids: List[str],
+        namespace: str,
+        metadatas: Optional[List[Dict[str, Any]]] = None,
     ) -> List[str]:
-        """
-        Add texts to the vector store
-        
-        Args:
-            texts: List of text strings to embed and store
-            metadata: Optional list of metadata dicts for each text
-            
-        Returns:
-            List of IDs for stored vectors
-        """
-        # Generate embeddings
+        """Add texts to the vector store."""
+        if metadatas is None:
+            metadatas = [{} for _ in texts]
+
+        # Generate embeddings using OpenAI
         embeddings = await self.embeddings.aembed_documents(texts)
-        
-        # Prepare vectors with metadata
-        vectors = []
-        for i, (text, embedding) in enumerate(zip(texts, embeddings)):
-            metadata_dict = metadata[i] if metadata else {"text": text}
-            vectors.append((
-                f"vec_{i}",  # Vector ID
-                embedding,
-                metadata_dict
-            ))
-            
-        # Upsert to Pinecone
-        self.index.upsert(vectors=vectors)
-        
-        return [v[0] for v in vectors]
-        
+
+        # Prepare records for upsert
+        records = [{
+            "id": id,
+            "values": embedding,
+            "metadata": metadata
+        } for id, embedding, metadata in zip(ids, embeddings, metadatas)]
+
+        # Upsert records in batches
+        vector_ids = []
+        batch_size = 100
+        for i in range(0, len(records), batch_size):
+            batch = records[i:i+batch_size]
+            try:
+                response = self.index.upsert(
+                    vectors=batch,
+                    namespace=namespace
+                )
+                vector_ids.append(response.upserted_count)
+            except Exception as e:
+                logger.error(f"Error upserting batch: {e}")
+        return vector_ids
+    
     async def similarity_search(
         self,
         query: str,
-        k: int = 5,
-        filter: Dict[str, Any] = None
+        k: int = 4,
     ) -> List[Dict[str, Any]]:
-        """
-        Search for similar texts
-        
-        Args:
-            query: Query text
-            k: Number of results to return
-            filter: Optional metadata filter
-            
-        Returns:
-            List of similar items with scores and metadata
-        """
-        # Generate query embedding
+        """Search for similar texts using a query string."""
+        # Get the embedding for the query
         query_embedding = await self.embeddings.aembed_query(query)
         
-        # Search in Pinecone
+        # Query the index with namespace
         results = self.index.query(
             vector=query_embedding,
             top_k=k,
-            include_metadata=True,
-            filter=filter
+            namespace=self.namespace,
+            include_metadata=True
         )
         
-        # Format results
-        formatted_results = []
-        for match in results.matches:
-            formatted_results.append({
-                "id": match.id,
-                "score": match.score,
-                "metadata": match.metadata
-            })
-            
-        return formatted_results
+        return results.matches
         
     async def delete_texts(self, ids: List[str]) -> None:
         """
@@ -106,7 +91,7 @@ class PineconeService:
             ids: List of vector IDs to delete
         """
         try:
-            self.index.delete(ids=ids)
+            self.index.delete(ids=ids, namespace=self.namespace)
         except pinecone.errors.NotFoundError:
             print(f"Vector IDs {ids} not found in the index.")
         except pinecone.errors.PineconeError as e:

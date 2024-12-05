@@ -6,6 +6,7 @@ from app.db.postgresql.database import SessionLocal
 from app.core.security import verify_token, verify_whatsapp_number
 from app.db.postgresql.models import Organization, WhatsAppUser
 from app.db.dynamodb.service import DynamoDBService
+from app.ai.llm import LLMService
 
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
@@ -62,16 +63,12 @@ async def verify_whatsapp_request(
     
     return whatsapp_user
 
-class RateLimiter:
-    def __init__(self, limit_per_minute: int = 60):
-        self.limit = limit_per_minute
-        # Initialize Redis connection here
-        
-    async def check_rate_limit(
-        self,
-        key: str,
-        organization: Organization = Depends(get_current_organization)
-    ) -> bool:
-        # Implement rate limiting logic using Redis
-        # This is a placeholder that always returns True
-        return True
+async def get_llm_service() -> LLMService:
+    return LLMService()
+
+async def rate_limit():
+    """
+    Rate limiting dependency
+    """
+    # TODO: Implement rate limiting using a different mechanism if needed
+    pass

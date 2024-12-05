@@ -19,6 +19,12 @@ services:
       - AWS_SECRET_ACCESS_KEY=test
       - AWS_REGION=us-east-1
       - DYNAMODB_ENDPOINT=http://localstack:4566
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PINECONE_API_KEY=${PINECONE_API_KEY}
+      - PINECONE_ENVIRONMENT=${PINECONE_ENVIRONMENT}
+      - SECRET_KEY=${SECRET_KEY}
+      - WHATSAPP_API_TOKEN=${WHATSAPP_API_TOKEN}
+      - WHATSAPP_VERIFY_TOKEN=${WHATSAPP_VERIFY_TOKEN}
     depends_on:
       - postgres
       - localstack
